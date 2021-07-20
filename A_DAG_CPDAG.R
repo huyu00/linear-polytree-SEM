@@ -1,0 +1,12 @@
+args = commandArgs(trailingOnly=T)
+tag = as.integer(args[1])
+
+library(bnlearn)
+A.df = read.csv(paste("./data/A_",tag,".csv",sep=""),header=FALSE)
+p = ncol(A.df)
+var_names = names(A.df)
+G = empty.graph(var_names)
+amat(G) = as.matrix(A.df)
+# graphviz.plot(cpdag(G))
+A_cpdag = t(amat(cpdag(G)))
+write.csv(A_cpdag, paste("./data/A_cpdag_", tag, ".csv", sep=""))
