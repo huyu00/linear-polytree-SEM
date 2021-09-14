@@ -20,11 +20,13 @@ The code also requires a `\data` and `\figure` sub-folders to store results.
 
 `example_infer_vs_hc.py` gives a simple example of applying the polytree learning to a synthetic data, and compare the result with the hill climbing algorithm.
 
-`polytree_simulation_vs_hc.py` test the performance of the polytree learning algorithm on randomly generated polytree models under various parameters `p`, `n`, `r_min` ($\rho_\min$), `din_max` (see the paper for details). The code produces Fig.1 of the paper (using pre-computed simulation data `run_id=5,6`). Note, the code may take a while to run with a large number of `n` and `ntrial`. 
+`polytree_simulation_vs_hc_PC.py` test the performance of the polytree learning algorithm on randomly generated polytree models under various parameters `p`, `n`, `r_min` ($\rho_\min$), `din_max` (see the paper for details). The code produces Fig.1 of the paper (using pre-computed simulation data `run_id=3,4`). Note, the code may take a while to run with a large number of `n` and `ntrial`. 
 
-`asia_data.py` applies the polytree learning to the benchmark data Asia, *Lauritzen and Spiegelhalter (1988)*. It produces Fig.2 of the paper.
+`DAG_simulation_vs_hc_PC.py` test the performance of the polytree learning algorithm on randomly generated DAG models under various parameters `p`, `n_edge`. The code produces Fig.2 of the paper (using pre-computed simulation data `run_id=2`). Note, the code may take a while to run with a large number of `n` and `ntrial`. 
 
-`alarm_data.py` applies the polytree learning to the benchmark data ALARM *Beinlich et al. (1989)*. It produces Fig.3 of the paper.
+`asia_data.py` applies the polytree learning to the benchmark data Asia, *Lauritzen and Spiegelhalter (1988)*. It produces Fig.3 of the paper.
+
+`alarm_data.py` applies the polytree learning to the benchmark data ALARM *Beinlich et al. (1989)*. It produces Fig.4 of the paper.
 
 
 
