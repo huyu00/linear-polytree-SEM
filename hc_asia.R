@@ -15,7 +15,7 @@ X.df = asia[sample(1:n_total,n_use,replace=T),] #bootstrap
 # true graph
 asia.dag = model2network("[A][S][T|A][L|S][B|S][D|B:E][E|T:L][X|E]")
 graphviz.plot(cpdag(asia.dag),layout = "dot")
-# need to transpose for usual convention
+# need to transpose the amat for usual convention
 A0 = t(amat(cpdag(asia.dag)))
 # re-ordering....
 nls = names(asia)

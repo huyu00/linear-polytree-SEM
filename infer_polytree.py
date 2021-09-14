@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from numpy.random import randn, randint, uniform, multivariate_normal
+from numpy.random import randn, randint, uniform, multivariate_normal, binomial
 from numpy.linalg import eigvals, eigvalsh, inv
 from numpy import (log, exp, sqrt, zeros, ones, eye, linspace, arange,
                     dot, outer, sign,diag)
@@ -9,6 +9,7 @@ from kruskal import inf_tree_m2
 import networkx as nx
 import timeit
 
+# For a directed edge e = [i,j], the direction is from j to i
 
 def is_pos_def(C):
     return np.all(eigvalsh(C) > 0)
@@ -136,7 +137,6 @@ def p_of_tree(T):
         p = max([p,e[0],e[1]])
     return p+1
 
-
 def CPDAG_partial_v(de,ue,tf_vnode):
     # partially oriented (of the vnode) and a list of vnode
     # return two lists of directed edges and undirected eges
@@ -186,6 +186,132 @@ def rand_polytree(p, din_max=1):
     # din_max is the max in-degree (attained)
     T0 = rand_tree(p,dmax=din_max)
     return tree_polytree(T0, din_max=din_max)
+
+def rand_DAG(p,s_edge):
+    A = binomial(1,s_edge,size=(p,p))
+    # lower triagular, node index are topological orders
+    A[np.triu_indices(p,k=-1)] = 0
+    G0 = []
+    for j in range(p):
+        for i in range(j+1,p):
+            if A[i,j] == 1:
+                G0.append([i,j])
+    return A,G0
+
+def ncomponent_A(A):
+    # A is symmetric adjaceny matrix
+    p,_ = A.shape
+    d = np.sum(A,axis=0)
+    L = diag(d) - A
+    eig_L = eigvalsh(L)
+    return np.sum(np.abs(eig_L)<1e-6)
+
+def rand_DAG_nedge(p,n_edge):
+    na = int(p*(p-1)/2)
+    a = zeros(na)
+    a[np.random.choice(range(na),n_edge,replace=False)] = 1
+    A = zeros((p,p))
+    A[np.tril_indices(p,k=-1)] = a
+    # lower triagular, node index are topological orders
+    G0 = []
+    for j in range(p):
+        for i in range(j+1,p):
+            if A[i,j] == 1:
+                G0.append([i,j])
+    return A,G0
+
+def is_connected(A):
+    # A is undirected adjacency matrix
+    p,_ = A.shape
+    A += eye(p)
+    Ap = np.linalg.matrix_power(A,p-1)
+    return all(Ap[0,:]>0)
+
+def rand_DAG_nedge_connected(p,n_edge):
+    na = int(p*(p-1)/2)
+    flag_connected = False
+    ntry = 0
+    while not flag_connected:
+        a = zeros(na)
+        a[np.random.choice(range(na),n_edge,replace=False)] = 1
+        A = zeros((p,p))
+        A[np.tril_indices(p,k=-1)] = a
+        # lower triagular, node index are topological orders
+        ntry += 1
+        print(ntry)
+        if is_connected(A+A.T):
+            flag_connected = True
+    G0 = []
+    for j in range(p):
+        for i in range(j+1,p):
+            if A[i,j] == 1:
+                G0.append([i,j])
+    # print('ntry for connected:', ntry)
+    return A,G0
+
+def rand_DAG_nedge_giant_component(p,n_edge):
+    A,G = rand_DAG_nedge(p,int(round(n_edge)))
+    # A,G = rand_DAG(p,n_edge/(p*(p-1)/2)) # s_edge
+    G1 = nx.from_numpy_matrix(A+A.T)
+    largest_cc = list(max(nx.connected_components(G1), key=len))
+    Ac = np.copy(A)
+    Ac = Ac[largest_cc,:]
+    Ac = Ac[:,largest_cc]
+    def ismember(i,x):
+        matched = False
+        for j in x:
+            if j==i:
+                matched = True
+        return matched
+    # Gc = [e for e in G if ismember(e[0],largest_cc) and ismember(e[1],largest_cc)]
+    # relabe G
+    p,_ = Ac.shape
+    Gnew = []
+    for j in range(p):
+        for i in range(j+1,p):
+            if Ac[i,j] == 1:
+                Gnew.append([i,j])
+    return Ac,Gnew
+
+def rand_DAG_nedge_giant_component_target(p_target,p_use,ne_use):
+    flag_matched = False
+    ntry = 0
+    while not flag_matched:
+        ntry += 1
+        A,G = rand_DAG_nedge_giant_component(p_use,ne_use)
+        p,_ = A.shape
+        if p == p_target:
+            flag_matched = True
+            break
+    print('ntry:', ntry)
+    return A,G
+
+def gen_SEM_DAG(p,G0, positive_weight=False):
+    n_edge = len(G0)
+    b = uniform(low=0.1,high=1.0, size=n_edge)
+    if not positive_weight:
+        b = b * 2*(binomial(1,0.5,size=n_edge)-0.5)
+    omega = ones(p)
+    B = zeros((p,p))
+    for i,e in enumerate(G0):
+        B[e[1],e[0]] = b[i]
+    # standardize b and omega to have unit var for X_j
+    C = np.linalg.inv(eye(p)-B)
+    C = C.T @ diag(omega) @ C
+    d = sqrt(diag(C))
+    B = diag(d) @ B @ diag(1/d)
+    omega = omega/d**2
+    for i,e in enumerate(G0):
+        b[i] = B[e[1],e[0]]
+    return b,omega
+
+def CPDAG_DAG(p,G0,tag=-1):
+    if tag<0:
+        tag = np.random.randint(1000,9999)
+    A = edge2dA(p,G0,[])
+    A_cpdag = A_DAG_CPDAG(A,tag=tag) # using R function
+    de,ue = dA2edge(A_cpdag)
+    return de,ue
 
 def gen_X_tree(T,p,n):
     # generate normal samples from tree
@@ -480,6 +606,18 @@ def dA2edge(A):
                 de.append([j,i])
     return de, ue
 
+def edge2dA(p,de,ue):
+    # convert de and ue to dgraph adj matrix
+    A = zeros((p,p))
+    for e in de:
+        i,j = e
+        A[i,j] = 1
+    for e in ue:
+        i,j = e
+        A[i,j] = 1
+        A[j,i] = 1
+    return A
+
 def hc_R(X,tag=1000):
     # alpha=0.05
     import csv
@@ -502,6 +640,28 @@ def hc_R(X,tag=1000):
         runtime = float(lines[0])
     return de, ue, runtime
 
+def PC_R(C,n, alpha=0.1,mmax=-1,tag=1000):
+    # calling R script to run PC algorithm
+    import csv
+    import subprocess
+    import sys
+    np.savetxt("./data/C_"+str(tag)+".csv", C, delimiter=",")
+    try:
+        subprocess.check_call("Rscript PC.R "+str(tag)+" "+str(n)
+            +" "+str(alpha)+" "+str(mmax), shell=True)
+    except:
+        assert 0
+    with open("./data/A_cpdag_"+str(tag)+".csv") as csvfile:
+        data = list(csv.reader(csvfile))
+    A0 = np.array(data)
+    A = A0[1:,:]
+    A = A[:,1:]
+    A = A.astype(int) # adj matrix
+    de, ue = dA2edge(A)
+    with open("./data/runtime_"+str(tag)+".txt") as txtfile:
+        lines = txtfile.readlines()
+        runtime = float(lines[0])
+    return de, ue, runtime
 
 def plot_polytree(T, filename):
     from networkx.drawing.nx_pydot import graphviz_layout
@@ -516,7 +676,7 @@ def plot_polytree(T, filename):
     fig.savefig('./figure/'+filename+'.png',dpi=200)
     plt.close()
 
-def plot_CPDAG(de,ue,filename,p=0,node_label=[],pos=[],fig_size=(8,8)):    
+def plot_CPDAG(de,ue,filename,p=0,node_label=[],pos=[],fig_size=(8,8)):
     node_size = 400
     font_size = 5
     from networkx.drawing.nx_pydot import graphviz_layout
