@@ -73,7 +73,7 @@ else:
         dC = np.diag(1/sqrt(np.diag(C)))
         C = dot(dot(dC, C), dC)
         # CL
-        de1, ue1 = inf_ploytree(C,n, alpha=alpha_CL)
+        de1, ue1 = inf_polytree(C,n, alpha=alpha_CL)
         diff_trial[0,:,t] = measure_CPDAG(de,ue,de1,ue1)
         # hc
         de_hc, ue_hc, runtime_R = hc_R(X, tag=tag_hc)

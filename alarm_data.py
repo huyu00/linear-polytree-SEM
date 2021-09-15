@@ -57,7 +57,7 @@ dC = np.diag(1/sqrt(np.diag(C)))
 C = dot(dot(dC, C), dC)
 
 t0 = timeit.default_timer()
-de1, ue1 = inf_ploytree(C,n, alpha=alpha_CL)
+de1, ue1 = inf_polytree(C,n, alpha=alpha_CL)
 t1 = timeit.default_timer()
 
 # evaluation

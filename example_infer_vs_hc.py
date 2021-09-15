@@ -8,7 +8,7 @@ import networkx as nx
 import timeit
 
 from infer_polytree import (rand_polytree, gen_X_SEM,
-        gen_SEM_polytree, corr_X, inf_ploytree, measure_CPDAG,
+        gen_SEM_polytree, corr_X, inf_polytree, measure_CPDAG,
         plot_polytree, CPDAG_polytree, hc_R)
 
 
@@ -49,7 +49,7 @@ print('time generate X:', t1-t0)
 
 # CL
 t0 = timeit.default_timer()
-de1, ue1 = inf_ploytree(C,n, alpha=0.05)
+de1, ue1 = inf_polytree(C,n, alpha=0.05)
 t1 = timeit.default_timer()
 print('time CL:', t1-t0)
 

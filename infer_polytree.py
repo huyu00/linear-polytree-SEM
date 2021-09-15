@@ -490,7 +490,7 @@ def find_vnode(T,C,rth):
 
 
 
-def inf_ploytree(C,n,alpha=0.05):
+def inf_polytree(C,n,alpha=0.05):
     # return CPDAG
     # t = r/sqrt((1-r^2)/(n-2)), df=n-2
     from scipy.stats import t as tdist

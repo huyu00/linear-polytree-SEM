@@ -76,7 +76,7 @@ if not flag_load_data:
                 C = corr_X(X)
                 # CL
                 t0 = timeit.default_timer()
-                de,ue = inf_ploytree(C,n, alpha=alpha_CL)
+                de,ue = inf_polytree(C,n, alpha=alpha_CL)
                 t1 = timeit.default_timer()
                 time_total[0] += t1-t0
                 measure[0,:,i,j,t] = measure_CPDAG(de0,ue0,de,ue)
