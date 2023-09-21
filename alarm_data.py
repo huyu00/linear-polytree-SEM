@@ -127,12 +127,40 @@ os.remove("./data/A_cpdag_"+str(tag_PC)+".csv")
 os.remove("./data/C_"+str(tag_PC)+".csv")
 os.remove("./data/runtime_"+str(tag_PC)+".txt")
 
+# # PC mreach=1
+# alpha_PC = 0.01
+# tag_PCm1 = np.random.randint(1000,9999)
+# t0 = timeit.default_timer()
+# de3, ue3, runtime_R = PC_R(C,n, alpha=alpha_PC,mmax=1,tag=tag_PCm1) # early-stopping after condition on 1 node
+# t1 = timeit.default_timer()
+# diff3 = measure_CPDAG(de,ue,de3,ue3)
+# print('time PCm1:', runtime_R)
+# print('true vs PCm1: miss, extra, wrong-d, fdr-sk, fdr-cpdag, jac-sk, jac_cpdag')
+# print(list(diff3[:3])+[round(x,2) for x in diff3[3:]])
+# plot_compare_CPDAG(de, ue, de3, ue3,'alarm_cpdag_PCm1',p=p,node_label=node_label, pos=pos_noise, fig_size=(8,8))
+# #
+# import os
+# os.remove("./data/A_cpdag_"+str(tag_PCm1)+".csv")
+# os.remove("./data/C_"+str(tag_PCm1)+".csv")
+# os.remove("./data/runtime_"+str(tag_PCm1)+".txt")
+
+
+# PC early-stopping
+alpha_PC = 0.01
+t0 = timeit.default_timer()
+de4, ue4 = PC_earlystop(C,n, alpha=alpha_PC) # adapted to polytree
+t1 = timeit.default_timer()
+diff4 = measure_CPDAG(de,ue,de4,ue4)
+print('time PCes:', t1 - t0)
+print('true vs PCes: miss, extra, wrong-d, fdr-sk, fdr-cpdag, jac-sk, jac_cpdag')
+print(list(diff4[:3])+[round(x,2) for x in diff4[3:]])
+plot_compare_CPDAG(de, ue, de4, ue4,'alarm_cpdag_PCes',p=p,node_label=node_label, pos=pos_noise, fig_size=(8,8))
 
 
 
 
 def measure_single_latex_table_ext(measure, method_names):
-    # 3,8
+    # 4,8
     # correct, missing, extra, wrong direction, fdr-sk, fdr-cpdag, jaccard-sk, jaccard_cpdag
     # n_round = [2,2,2,3,3,3,3]
     n_round = [2,2,2,2,2,2,2,2]
@@ -150,6 +178,8 @@ def measure_single_latex_table_ext(measure, method_names):
         for i in print_order:
             m = measure[k,i]
             m = np.round(m,n_round[i])
+            if i<=3:
+                m = int(m)  # number of edges
             x = str(m)
             if k == id_best[i]:
                 s += ' & \\textbf{' + x +'}'
@@ -161,13 +191,14 @@ def measure_single_latex_table_ext(measure, method_names):
 
 
 print('Latex table:')
-method_names = ['Polytree','Hill-climbing','PC']
+method_names = ['Chow-Liu','Hill-climbing','PC','PC early stopped']
 n_edge_true = len(de) + len(ue)
-diff_ext = zeros((3,8))
+diff_ext = zeros((4,8))
 diff_ext[0,1:] = np.copy(diff1)
 print(diff1)
 diff_ext[1,1:] = np.copy(diff2)
 diff_ext[2,1:] = np.copy(diff3)
+diff_ext[3,1:] = np.copy(diff4)
 diff_ext[:,0] = n_edge_true - diff_ext[:,1] - diff_ext[:,3]
 print(diff_ext[0,:])
 measure_single_latex_table_ext(diff_ext, method_names=method_names)

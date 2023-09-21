@@ -17,20 +17,21 @@ def loadall_npz(file):
 
 
 import random
-# random.seed(1)
-# np.random.seed(1)
+# random.seed(2)
+# np.random.seed(2)
 import timeit
 
 flag_load_data = True
-run_id = 3
+run_id = 56 # generate a single random polytree, then equipt with different rho_min at each trial
+flag_no_label = True
 # pre-computed data:
-# run_id 3: p=100, din_max=10, ntrial=100, alpha_CL=0.1, alpha_PC=0.01, m.max=inf
-# run_id 4: p=100, din_max=20, ntrial=100, alpha_CL=0.1, alpha_PC=0.01, m.max=inf
+# run_id 55: p=100, din_max=10, ntrial=100, alpha_CL=0.1, alpha_PC=0.01, m.max=inf
+# run_id 56: p=100, din_max=20, ntrial=100, alpha_CL=0.1, alpha_PC=0.01, m.max=inf
 alpha_CL = 0.1
 alpha_PC = 0.01
-mmax = -1
 tag_hc = np.random.randint(1000,9999) # avoid file access collision for multiple sessions
 tag_PC = np.random.randint(1000,9999) # avoid file access collision for multiple sessions
+# tag_PCm1 = np.random.randint(1000,9999) # avoid file access collision for multiple sessions
 flag_CL_only = False
 
 if not flag_load_data:
@@ -41,7 +42,7 @@ if not flag_load_data:
     rmin_ls = [0.05, 0.1, 0.15]
     rmax_ls = [0.8]
     assert max(rmax_ls)**2 <= 1-ommin
-    ntrial = 2 # set of random sem parameters and X samples
+    ntrial = 100
     ns = [50,100,200,400,600,800,1000]
     # ns = [50,100]
     nn = len(ns)
@@ -55,15 +56,16 @@ if not flag_load_data:
                             args = (p,din_max,ommin,rmin,rmax)
                             parameters.append(args)
     ncase = len(parameters)
-    measure = zeros((3,7,ncase,nn,ntrial)) # edge set difference, 0:CL, 1:hc, 2:PC
+    measure = zeros((4,7,ncase,nn,ntrial)) # edge set difference, 0:CL, 1:hc, 2:PC, 3:PCm1/PCes
     # missing, extra, wrong direction, fdr-sk, fdr-cpdag, jaccard-sk, jaccard_cpdag
     nls = zeros((ncase,nn))
     print('run id:', run_id)
-    print('number of inference:', ncase*nn*ntrial)
-    print('number of SEM:', ncase)
-    time_total = zeros(3)
-    for (i,args) in enumerate(parameters):
-        p,din_max,ommin,rmin,rmax = args
+    print('number of inference:', nn*ncase*ntrial)
+    print('number of SEM:', ncase*ntrial)
+    print('number of graph:', ntrial)
+    time_total = zeros(4)
+    for t in range(ntrial):
+        # generate polytree
         ntry = 0
         while 1:
             T0 = rand_polytree(p, din_max=din_max)
@@ -72,13 +74,15 @@ if not flag_load_data:
                 # print('n try', ntry)
                 break
         de0,ue0 = CPDAG_polytree(T0)
-        T0_sem = gen_SEM_polytree(T0,ommin,rmin,rmax)
-        # ns = [int(max(10,round(x))) for x in linspace(log(p)*8, log(p)*180, nn)]  #for small p
-        # ns = [int(max(10,round(x))) for x in linspace(log(p)*150, log(p)*500, nn)]   #for large p
-        nls[i,:] = ns
-        for (j,n) in enumerate(ns):
-            # print('n='+str(n))
-            for t in range(ntrial):
+        # generate SEM
+        for (i,args) in enumerate(parameters):
+            _,_,ommin,rmin,rmax = args
+            T0_sem = gen_SEM_polytree(T0,ommin,rmin,rmax)
+            # ns = [int(max(10,round(x))) for x in linspace(log(p)*8, log(p)*180, nn)]  #for small p
+            # ns = [int(max(10,round(x))) for x in linspace(log(p)*150, log(p)*500, nn)]   #for large p
+            # generate samples X and inference
+            nls[i,:] = ns
+            for (j,n) in enumerate(ns):
                 # print('n='+str(n))
                 X = gen_X_SEM(T0,T0_sem[0],T0_sem[1],n)
                 C = corr_X(X)
@@ -94,14 +98,26 @@ if not flag_load_data:
                     time_total[1] += runtime_R
                     measure[1,:,i,j,t] = measure_CPDAG(de0,ue0,de_hc,ue_hc)
                     # PC
-                    de_PC, ue_PC, runtime_R = PC_R(C,n=n,alpha=alpha_PC,mmax=mmax,tag=tag_PC)
+                    de_PC, ue_PC, runtime_R = PC_R(C,n=n,alpha=alpha_PC,mmax=-1,tag=tag_PC)
                     time_total[2] += runtime_R
                     measure[2,:,i,j,t] = measure_CPDAG(de0,ue0,de_PC,ue_PC)
+                    # # PCm1
+                    # de_PCm1, ue_PCm1, runtime_R = PC_R(C,n=n,alpha=alpha_PC,mmax=1,tag=tag_PCm1)
+                    # time_total[3] += runtime_R
+                    # measure[3,:,i,j,t] = measure_CPDAG(de0,ue0,de_PCm1,ue_PCm1)
+                    # PC early stop
+                    t0 = timeit.default_timer()
+                    de_PCes, ue_PCes = PC_earlystop(C,n, alpha=alpha_PC) # adapted to polytree
+                    t1 = timeit.default_timer()
+                    time_total[3] += t1-t0
+                    measure[3,:,i,j,t] = measure_CPDAG(de0,ue0,de_PCes,ue_PCes)
     tx1 = timeit.default_timer()
     total_sim_time = tx1-tx0
     print('inference time CL: ', time_total[0])
     print('inference time hc: ', time_total[1])
     print('inference time PC: ', time_total[2])
+    # print('inference time PCm1: ', time_total[3])
+    print('inference time PCes: ', time_total[3])
     print('total sim time: ', total_sim_time)
     with open('./data/polytree_sim_'+str(run_id)+'.npz','wb') as file1:
         np.savez(file1, p_ls=p_ls,ommin=ommin,rmin_ls=rmin_ls,rmax_ls=rmax_ls,
@@ -117,6 +133,9 @@ if not flag_load_data:
         os.remove("./data/A_cpdag_"+str(tag_PC)+".csv")
         os.remove("./data/C_"+str(tag_PC)+".csv")
         os.remove("./data/runtime_"+str(tag_PC)+".txt")
+        # os.remove("./data/A_cpdag_"+str(tag_PCm1)+".csv")
+        # os.remove("./data/C_"+str(tag_PCm1)+".csv")
+        # os.remove("./data/runtime_"+str(tag_PCm1)+".txt")
 else:
     loadall_npz('./data/polytree_sim_'+str(run_id)+'.npz')
     print('run id:', run_id)
@@ -126,6 +145,8 @@ else:
     print('inference time CL: ', time_total[0])
     print('inference time hc: ', time_total[1])
     print('inference time PC: ', time_total[2])
+    # print('inference time PCm1: ', time_total[3])
+    print('inference time PCes: ', time_total[3])
     print('total sim time: ', total_sim_time)
     print('ncase:', ncase)
     print('nn:', nn)
@@ -135,6 +156,7 @@ else:
 #     print('inference time CL: ', round(time_total[0]/ninfer,2))
 #     print('inference time hc: ', round(time_total[1]/ninfer,2))
 #     print('inference time PC: ', round(time_total[2]/ninfer,2))
+#     print('inference time PCes: ', round(time_total[3]/ninfer,2))
 
 
 flag_plot_comparison = True
@@ -184,61 +206,73 @@ for i_m in id_plot_measure:
             m_label_short = measure_label_short[i_m]
             fraction = np.mean(m,axis=-1)
             f_sd = np.std(m,axis=-1) / sd_sem * 1.96
+            mA = 12
+            mB = 6
             # print('cpdag sd:', np.median(f_sd*sd_sem))
             if not flag_plot_nlogp:
                 plt.figure(fig_edge.number)
                 if flag_plot_sd:
                     line = plt.errorbar(ns, fraction[0,:], f_sd[0,:],
-                            marker='.', linestyle='-',label='polytree:'+line_label)
+                            marker='.', markersize=mA, linestyle='-',label='polytree:'+line_label)
                     caps = line[1]
                     for cap in caps:
                         cap.set_markeredgewidth(0.5)
                     if flag_plot_comparison:
                         (_, caps, _) = plt.errorbar(ns, fraction[1,:], f_sd[1,:],
-                            marker='^',linestyle='--', color=line[0].get_color(), capsize=capsize)
+                            marker='^', markersize=mB, linestyle='--', color=line[0].get_color(), capsize=capsize)
                         for cap in caps:
                             cap.set_markeredgewidth(0.5)
                         (_, caps, _) = plt.errorbar(ns, fraction[2,:], f_sd[2,:],
-                            marker='s', markersize=4, linestyle='-.', color=line[0].get_color(), capsize=capsize)
+                            marker='s', markersize=mB, linestyle='--', color=line[0].get_color(), capsize=capsize)
+                        for cap in caps:
+                            cap.set_markeredgewidth(0.5)
+                        (_, caps, _) = plt.errorbar(ns, fraction[3,:], f_sd[3,:],
+                            marker='s', markersize=mB, linestyle='-.', color=line[0].get_color(), capsize=capsize)
                         for cap in caps:
                             cap.set_markeredgewidth(0.5)
                 else:
-                    line = plt.plot(ns, fraction[0,:], marker='.', linestyle='-',label='polytree:'+line_label)
+                    line = plt.plot(ns, fraction[0,:], marker='.', markersize=mA, linestyle='-',label='polytree:'+line_label)
                     if flag_plot_comparison:
-                        plt.plot(ns, fraction[1,:], marker='^', linestyle='--', color=line[0].get_color())
-                        plt.plot(ns, fraction[2,:], marker='s', markersize=4, linestyle='-.', color=line[0].get_color())
+                        plt.plot(ns, fraction[1,:], marker='^', markersize=mB, linestyle='--', color=line[0].get_color())
+                        plt.plot(ns, fraction[2,:], marker='s', markersize=mB, linestyle='-', color=line[0].get_color())
+                        plt.plot(ns, fraction[3,:], marker='s', markersize=mB, linestyle='-.', color=line[0].get_color())
             else:
                 plt.figure(fig_edge_nlogp.number)
                 if flag_plot_sd:
                     line = plt.errorbar(ns/log(p), fraction[0,:], f_sd[0,:],
-                            marker='.', linestyle='-',label='polytree:'+line_label, capsize=capsize)
+                            marker='.', markersize=mA, linestyle='-',label='polytree:'+line_label, capsize=capsize)
                     caps = line[1]
                     for cap in caps:
                         cap.set_markeredgewidth(0.5)
                     if flag_plot_comparison:
                         (_, caps, _) = plt.errorbar(ns/log(p), fraction[1,:], f_sd[1,:],
-                            marker='^',linestyle='--', color=line[0].get_color(), capsize=capsize)
+                            marker='^', markersize=mB, linestyle='--', color=line[0].get_color(), capsize=capsize)
                         for cap in caps:
                             cap.set_markeredgewidth(0.5)
                         (_, caps, _) = plt.errorbar(ns/log(p), fraction[2,:], f_sd[2,:],
-                            marker='s',markersize=4,linestyle='-.', color=line[0].get_color(), capsize=capsize)
+                            marker='s',markersize=mB,linestyle='--', color=line[0].get_color(), capsize=capsize)
+                        for cap in caps:
+                            cap.set_markeredgewidth(0.5)
+                        (_, caps, _) = plt.errorbar(ns/log(p), fraction[3,:], f_sd[3,:],
+                            marker='s',markersize=mB,linestyle='-.', color=line[0].get_color(), capsize=capsize)
                         for cap in caps:
                             cap.set_markeredgewidth(0.5)
                 else:
-                    line = plt.plot(ns/log(p), fraction[0,:], marker='.', linestyle='-',label='polytree:'+line_label)
+                    line = plt.plot(ns/log(p), fraction[0,:], marker='.', markersize=mA, linestyle='-',label='polytree:'+line_label)
                     if flag_plot_comparison:
-                        plt.plot(ns/log(p), fraction[1,:], marker='^', linestyle='--', color=line[0].get_color())
-                        plt.plot(ns/log(p), fraction[2,:], marker='s', markersize=4, linestyle='-.', color=line[0].get_color())
-    if not flag_plot_nlogp:
+                        plt.plot(ns/log(p), fraction[1,:], marker='^', markersize=mB, linestyle='--', color=line[0].get_color())
+                        plt.plot(ns/log(p), fraction[2,:], marker='s', markersize=mB, linestyle='--', color=line[0].get_color())
+                        plt.plot(ns/log(p), fraction[3,:], marker='s', markersize=mB, linestyle='-.', color=line[0].get_color())
+    if not flag_plot_nlogp and not flag_no_label:
         plt.figure(fig_edge.number)
         plt.xlabel(r'$n$')
-    else:
+    elif not flag_no_label:
         plt.figure(fig_edge_nlogp.number)
         plt.xlabel(r'$n/\log(p)$')
     # plt.ylabel(m_label)
     plt.ylim([0,1])
     # plt.legend()
-    plt.title(m_label)
+    if not flag_no_label: plt.title(m_label)
     # plt.title('polytree:solid, hc:dashed')
     if not flag_plot_nlogp:
         plt.savefig('./figure/polytree_sim_'+m_label_short+'_'+str(run_id), dpi=300)

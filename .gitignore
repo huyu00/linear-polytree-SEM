@@ -3,3 +3,7 @@
 data/.DS_Store
 .Rhistory
 figure/.DS_Store
+*.pyc
+.DS_Store
+data/.DS_Store
+*.png

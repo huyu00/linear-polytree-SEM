@@ -17,8 +17,9 @@ def loadall_npz(file):
 
 
 import random
-# random.seed(1)
-# np.random.seed(1)
+# seed = 7
+# random.seed(seed)
+# np.random.seed(seed)
 import timeit
 
 
@@ -91,17 +92,23 @@ print('time CL:', t1-t0)
 # PC algorithm
 tag_PC = np.random.randint(1000,9999)
 t0 = timeit.default_timer()
-de3, ue3, runtime_R = PC_R(C,n,alpha=alpha_PC,tag=tag_PC)
+de4, ue4 = PC_earlystop(C,n, alpha=alpha_PC) # adapted to polytree
 t1 = timeit.default_timer()
 print('time PC:', runtime_R)
 
 
+# PC early stopping
+t0 = timeit.default_timer()
+de3, ue3, runtime_R = PC_R(C,n,alpha=alpha_PC,mmax=1,tag=tag_PC)
+t1 = timeit.default_timer()
+print('time PC early stop:', runtime_R)
 
 
 # evaluation
 diff1 = measure_CPDAG(de,ue,de1,ue1)
 diff2 = measure_CPDAG(de,ue,de2,ue2)
 diff3 = measure_CPDAG(de,ue,de3,ue3)
+diff4 = measure_CPDAG(de,ue,de4,ue4)
 print('total true edge:', len(de)+len(ue))
 print('true vs CL: miss, extra, wrong-d, fdr-sk, fdr-cpdag, jac-sk, jac_cpdag')
 print(list(diff1[:3])+[round(x,2) for x in diff1[3:]])
@@ -109,6 +116,8 @@ print('true vs hc: miss, extra, wrong-d, fdr-sk, fdr-cpdag, jac-sk, jac_cpdag')
 print(list(diff2[:3])+[round(x,2) for x in diff2[3:]])
 print('true vs PC: miss, extra, wrong-d, fdr-sk, fdr-cpdag, jac-sk, jac_cpdag')
 print(list(diff3[:3])+[round(x,2) for x in diff3[3:]])
+print('true vs PC early stop: miss, extra, wrong-d, fdr-sk, fdr-cpdag, jac-sk, jac_cpdag')
+print(list(diff4[:3])+[round(x,2) for x in diff4[3:]])
 
 
 pos = plot_CPDAG(de,ue,'asia_cpdag', p=p,node_label=node_label)
@@ -119,6 +128,7 @@ plot_CPDAG(de,ue,'asia_cpdag', p=p,node_label=node_label, pos=pos_noise, fig_siz
 plot_compare_CPDAG(de, ue, de1, ue1,'asia_cpdag_CL',p=p,node_label=node_label, pos=pos_noise, fig_size=(3.5,3.5))
 plot_compare_CPDAG(de, ue, de2, ue2,'asia_cpdag_hc',p=p,node_label=node_label, pos=pos_noise, fig_size=(3.5,3.5))
 plot_compare_CPDAG(de, ue, de3, ue3,'asia_cpdag_PC',p=p,node_label=node_label, pos=pos_noise, fig_size=(3.5,3.5))
+plot_compare_CPDAG(de, ue, de4, ue4,'asia_cpdag_PCes',p=p,node_label=node_label, pos=pos_noise, fig_size=(3.5,3.5))
 
 
 import os

@@ -14,10 +14,15 @@ import timeit
 def is_pos_def(C):
     return np.all(eigvalsh(C) > 0)
 
-def corr_X(X):
+def corr_X(X,zeromean=True):
     # calculate sample correlation matrix
+    # default assumes zero mean
     n,p = X.shape
-    C = dot(X.T, X)/n
+    if zeromean:
+        C = dot(X.T, X)/n
+    else:
+        X = X - outer(ones(n),np.mean(X,axis=0))
+        C = dot(X.T, X)/(n-1)
     dC = np.diag(1/sqrt(np.diag(C)))
     C = dot(dot(dC, C), dC)
     return C
@@ -141,7 +146,7 @@ def CPDAG_partial_v(de,ue,tf_vnode):
     # partially oriented (of the vnode) and a list of vnode
     # return two lists of directed edges and undirected eges
     p = len(tf_vnode)
-    for t in range(p):
+    for t in range(len(ue)):
         i_remove = []
         for i,e in enumerate(ue):
             if tf_vnode[e[1]]:
@@ -503,6 +508,48 @@ def inf_polytree(C,n,alpha=0.05):
     return de, ue
 
 
+def PC_earlystop(C,n,alpha=0.05):
+    # return CPDAG
+    # t = r/sqrt((1-r^2)/(n-2)), df=n-2
+    from scipy.stats import t as tdist
+    tc = tdist.ppf(1-alpha/2, df=n-2)
+    rth = np.sqrt(1 - 1/(1+tc**2/(n-2)))
+    T = PC_earlystop_skeleton(C,rth)
+    p,_ = C.shape
+    de, ue, tf_vnode = find_vnode(T,C,rth=rth)
+    de, ue = CPDAG_partial_v(de,ue,tf_vnode)
+    return de, ue
+
+def PC_earlystop_skeleton(C,rth):
+    # return a list of undirected edges [i,j]
+    p,_ = C.shape
+    A = ones((p,p))
+    A[eye(p)>0] = 0
+    # G1
+    for i in range(p):
+        for j in range(i+1,p):
+            if np.abs(C[i,j]) < rth:
+                A[i,j] = 0
+                A[j,i] = 0
+    for i in range(p):
+        for j in range(i+1,p):
+            if A[i,j]:
+                for k in range(p):
+                    if (A[i,k] or A[j,k]) and not(i==k) and not(j==k) and C[i,k]<1 and C[j,k]<1:
+                        rij_k = C[i,j] - C[i,k]*C[j,k]
+                        rij_k /= sqrt(1 - C[i,k]**2)
+                        rij_k /= sqrt(1 - C[j,k]**2)
+                        if abs(rij_k) < rth:
+                            A[i,j] = 0
+                            A[j,i] = 0
+    ue  = []
+    for i in range(p):
+        for j in range(i+1,p):
+            if A[i,j]:
+                ue.append([i,j])
+    return ue
+
+
 def diff_tree(T0,T):
     T0 = [np.sort(e) for e in T0]
     T = [np.sort(e) for e in T]
@@ -794,22 +841,32 @@ def plot_compare_CPDAG(de, ue, de1, ue1, filename,p=0,node_label=[],pos=[],fig_s
     label_dict = {i:lab for i,lab in enumerate(node_label) if i in pos}
     fig = plt.figure(figsize=fig_size)
     fig.clf()
+    ue_width = 4
+    de_width = 3
     if de_missing:
-        nx.draw_networkx_edges(G1, pos, edgelist=de_missing, arrows=True, edge_color='r')
+        nx.draw_networkx_edges(G1, pos, edgelist=de_missing, arrows=True,
+            width=de_width, edge_color='r', style='--')
     if ue_missing:
-        nx.draw_networkx_edges(G1, pos, edgelist=ue_missing, arrows=False, width=2, edge_color='r')
+        nx.draw_networkx_edges(G1, pos, edgelist=ue_missing, arrows=False,
+            width=ue_width, edge_color='r', style='--')
     if de1_match:
-        nx.draw_networkx_edges(G1, pos, edgelist=de1_match, arrows=True, edge_color='k')
+        nx.draw_networkx_edges(G1, pos, edgelist=de1_match, arrows=True,
+            width=de_width, edge_color='k')
     if de1_extra:
-        nx.draw_networkx_edges(G1, pos, edgelist=de1_extra, arrows=True, edge_color='b')
+        nx.draw_networkx_edges(G1, pos, edgelist=de1_extra, arrows=True,
+            width=de_width,  edge_color='b', style=':')
     if de1_wrongd:
-        nx.draw_networkx_edges(G1, pos, edgelist=de1_wrongd, arrows=True, edge_color='g')
+        nx.draw_networkx_edges(G1, pos, edgelist=de1_wrongd, arrows=True,
+            width=de_width, edge_color='g', style='-.')
     if ue1_match:
-        nx.draw_networkx_edges(G1, pos, edgelist=ue1_match, arrows=False, width=2, edge_color='k')
+        nx.draw_networkx_edges(G1, pos, edgelist=ue1_match, arrows=False,
+            width=ue_width, edge_color='k')
     if ue1_extra:
-        nx.draw_networkx_edges(G1, pos, edgelist=ue1_extra, arrows=False, width=2, edge_color='b')
+        nx.draw_networkx_edges(G1, pos, edgelist=ue1_extra, arrows=False,
+            width=ue_width, edge_color='b', style=':')
     if ue1_wrongd:
-        nx.draw_networkx_edges(G1, pos, edgelist=ue1_wrongd, arrows=False, width=2, edge_color='g')
+        nx.draw_networkx_edges(G1, pos, edgelist=ue1_wrongd, arrows=False,
+            width=ue_width, edge_color='g', style='-.')
     nx.draw_networkx_nodes(G1, pos, node_size=node_size,node_color='w',edgecolors='k')
     nx.draw_networkx_labels(G1, pos,labels=label_dict, font_size=font_size)
     fig.savefig('./figure/'+filename+'.png',dpi=400)
