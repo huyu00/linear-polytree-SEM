@@ -723,9 +723,8 @@ def plot_polytree(T, filename):
     fig.savefig('./figure/'+filename+'.png',dpi=200)
     plt.close()
 
-def plot_CPDAG(de,ue,filename,p=0,node_label=[],pos=[],fig_size=(8,8)):
-    node_size = 400
-    font_size = 5
+def plot_CPDAG(de,ue,filename,p=0,node_label=[],pos=[],
+    fig_size=(8,8),node_size=400,font_size=5):
     from networkx.drawing.nx_pydot import graphviz_layout
     if p == 0:
         p = len(de)+len(ue)+1
@@ -745,19 +744,20 @@ def plot_CPDAG(de,ue,filename,p=0,node_label=[],pos=[],fig_size=(8,8)):
     label_dict = {i:lab for i,lab in enumerate(node_label) if i in pos}
     fig = plt.figure(figsize=fig_size)
     fig.clf()
-    nx.draw_networkx_edges(G, pos, edgelist=de_rev, arrows=True)
+    nx.draw_networkx_edges(G, pos, edgelist=de_rev, arrows=True,
+        width=3)
     nx.draw_networkx_edges(G, pos, edgelist=ue, edge_color='k', arrows=False,
-        width=2)
+        width=4)
     nx.draw_networkx_nodes(G, pos, node_size=node_size,node_color='w',edgecolors='k')
     nx.draw_networkx_labels(G, pos,labels=label_dict, font_size=font_size)
+    plt.box(False)
     fig.savefig('./figure/'+filename+'.png',dpi=400)
     plt.close()
     return pos
 
-def plot_compare_CPDAG(de, ue, de1, ue1, filename,p=0,node_label=[],pos=[],fig_size=(8,8)):
+def plot_compare_CPDAG(de, ue, de1, ue1, filename,p=0,node_label=[],pos=[],
+    fig_size=(8,8),node_size=400,font_size=5):
     # use de,ue as the true graph
-    node_size = 400
-    font_size = 5
     from networkx.drawing.nx_pydot import graphviz_layout
     if p == 0:
         p = len(de)+len(ue)+1
@@ -869,6 +869,7 @@ def plot_compare_CPDAG(de, ue, de1, ue1, filename,p=0,node_label=[],pos=[],fig_s
             width=ue_width, edge_color='g', style='-.')
     nx.draw_networkx_nodes(G1, pos, node_size=node_size,node_color='w',edgecolors='k')
     nx.draw_networkx_labels(G1, pos,labels=label_dict, font_size=font_size)
+    plt.box(False)
     fig.savefig('./figure/'+filename+'.png',dpi=400)
     plt.close()
     return pos

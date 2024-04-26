@@ -1,0 +1,6 @@
+"","Burglary","Earthquake","Alarm","JohnCalls","MaryCalls"
+"Burglary",0,0,0,0,0
+"Earthquake",0,0,0,0,0
+"Alarm",1,1,0,0,0
+"JohnCalls",0,0,1,0,0
+"MaryCalls",0,0,1,0,0

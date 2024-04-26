@@ -23,33 +23,27 @@ import random
 import timeit
 
 
-n = 5000
+n = 1000
 alpha_CL = 0.1
 alpha_PC = 0.01
 
-# hc, and save X and the true graph
-tag_hc = np.random.randint(1000,9999) # avoid file access collision for multiple sessions
 import csv
 import subprocess
 import sys
-try:
-    subprocess.check_call("Rscript hc_asia.R "+str(tag_hc) + " "+ str(n), shell=True)
-except:
-    assert 0
-with open("./data/A_cpdag_"+str(tag_hc)+".csv") as csvfile:
-    data = list(csv.reader(csvfile))
-A0 = np.array(data)
-A = A0[1:,:]
-A = A[:,1:]
-A = A.astype(int) # adj matrix
-de2, ue2 = dA2edge(A)
-with open("./data/runtime_"+str(tag_hc)+".txt") as txtfile:
-    lines = txtfile.readlines()
-    runtime_R = float(lines[0])
-print('time hc:', runtime_R)
+
+# all data
+from pandas import read_csv
+df = read_csv(r"./data/X_earthquake.csv")
+node_label = df.columns
+node_label = node_label[1:]
+X0 = df.to_numpy()
+X0 = X0[:,1:]
+n0,p = X0.shape
+assert p == 5
+assert n0 == 100000
 
 # true cpdag
-with open("./data/A_asia_cpdag.csv") as csvfile:
+with open("./data/A_earthquake_cpdag.csv") as csvfile:
     data = list(csv.reader(csvfile))
 A0 = np.array(data)
 A = A0[1:,:]
@@ -58,26 +52,25 @@ A = A.astype(int) # adj matrix
 de, ue = dA2edge(A)
 
 
+# subsample data
+from random import choices
+while 1:
+    X = X0[choices(range(n0),k=n),:]
+    X1 = np.copy(X) # noncentered
+    X = X - np.outer(ones(n), np.mean(X,axis=0))
+    C = (X.T @ X) / (n-1)
+    if np.all(np.diag(C)>0):
+        break
+print("p,n", p,n)
+
+# hc, and save numerical X and the true graph
+tag_hc = np.random.randint(1000,9999) # avoid file access collision for multiple sessions
+# hc
+de2, ue2, runtime_R = hc_R(X1, tag=tag_hc)
 
 
 # CL
-alpha_CL = 0.1
 # load data and calculate corr matrix
-from pandas import read_csv
-df = read_csv(r"./data/X_"+str(tag_hc)+".csv")
-node_label = df.columns
-node_label = node_label[1:]
-# node_label = []
-X = df.to_numpy()
-X = X[:,1:]
-n1,p = X.shape
-print('p,n:', p,n)
-assert p == 8
-assert n1 == n
-
-
-X = X - np.outer(ones(n), np.mean(X,axis=0))
-C = (X.T @ X) / (n-1)
 dC = np.diag(1/sqrt(np.diag(C)))
 C = dot(dot(dC, C), dC)
 
@@ -118,15 +111,23 @@ print('true vs PC early stop: miss, extra, wrong-d, fdr-sk, fdr-cpdag, jac-sk, j
 print(list(diff4[:3])+[round(x,2) for x in diff4[3:]])
 
 
-pos = plot_CPDAG(de,ue,'asia_cpdag', p=p,node_label=node_label)
+pos = plot_CPDAG(de,ue,'earthquake_cpdag', p=p,node_label=node_label)
 # exy = 10
-exy = 0
-pos_noise = {key:(value[0]+(uniform()-0.5)*exy, value[1]+(uniform()-0.5)*exy) for (key,value) in pos.items()}
-plot_CPDAG(de,ue,'asia_cpdag', p=p,node_label=node_label, pos=pos_noise, fig_size=(3.5,3.5))
-plot_compare_CPDAG(de, ue, de1, ue1,'asia_cpdag_CL',p=p,node_label=node_label, pos=pos_noise, fig_size=(3.5,3.5))
-plot_compare_CPDAG(de, ue, de2, ue2,'asia_cpdag_hc',p=p,node_label=node_label, pos=pos_noise, fig_size=(3.5,3.5))
-plot_compare_CPDAG(de, ue, de3, ue3,'asia_cpdag_PC',p=p,node_label=node_label, pos=pos_noise, fig_size=(3.5,3.5))
-plot_compare_CPDAG(de, ue, de4, ue4,'asia_cpdag_PCes',p=p,node_label=node_label, pos=pos_noise, fig_size=(3.5,3.5))
+# exy = 0
+# pos_noise = {key:(value[0]+(uniform()-0.5)*exy, value[1]+(uniform()-0.5)*exy) for (key,value) in pos.items()}
+# print(node_label)
+pos_noise = pos.copy()
+pos_noise[2] = (pos[2][0], pos[2][1]+20)
+plot_CPDAG(de,ue,'earthquake_cpdag', p=p,node_label=node_label, pos=pos_noise,
+    fig_size=(3,3),node_size=600,font_size=4)
+plot_compare_CPDAG(de, ue, de1, ue1,'earthquake_cpdag_CL',p=p,node_label=node_label, pos=pos_noise,
+    fig_size=(3,3),node_size=600,font_size=4)
+plot_compare_CPDAG(de, ue, de2, ue2,'earthquake_cpdag_hc',p=p,node_label=node_label, pos=pos_noise,
+    fig_size=(3,3),node_size=600,font_size=4)
+plot_compare_CPDAG(de, ue, de3, ue3,'earthquake_cpdag_PC',p=p,node_label=node_label, pos=pos_noise,
+    fig_size=(3,3),node_size=600,font_size=4)
+plot_compare_CPDAG(de, ue, de4, ue4,'earthquake_cpdag_PCes',p=p,node_label=node_label, pos=pos_noise,
+    fig_size=(3,3),node_size=600,font_size=4)
 
 
 import os
